@@ -1,7 +1,9 @@
 import org.apache.spark
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, desc}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.desc
+//import org.apache.spark.sql.functions.{array, col, collect_list, desc}
 import org.apache.spark.{SparkConf, SparkContext, SparkEnv}
 
 object challenge {
@@ -33,6 +35,22 @@ object challenge {
     //df_2.show(10990)
   }
 
+  //PART 3
+  def part3(df: DataFrame): Unit ={
+    val df_3 = df.groupBy("App")                                      //Group by app name
+      .agg(collect_set("Category").as("Categories"),      //Set will avoid duplicate categories
+        max("Reviews").as("Reviews"),
+        first("Size").as("Size"))
+
+    val newdf = df_3.withColumn("Size", when(col("Size").like("%k"), (regexp_replace(col("Size"), "k", "").cast("double")*1000))
+      .when(col("Size").like("%M"), (regexp_replace(col("Size"), "M", "").cast("double")*1000000))
+      .otherwise(regexp_replace(col("Size"), " ", "").cast("double")))
+
+
+    //val df_3aux = df.drop("Category").groupBy("App").agg(max())
+    newdf.show(2000)
+  }
+
   def main(args: Array[String]): Unit =
   {
     //Create session
@@ -53,7 +71,8 @@ object challenge {
       .csv("src/main/resources/googleplaystore.csv")
 
     //part1(df)
-    part2(df2)
+    //part2(df2)
+    part3(df2)
 
   }
 
