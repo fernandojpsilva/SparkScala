@@ -40,7 +40,7 @@ object challenge {
   def part3(df: DataFrame): DataFrame={
     val df_aux = df.groupBy("App")                                                    //Group by app name
       .agg(collect_set("Category").as("Categories"),                      //Set will avoid duplicate categories
-        first("Rating").cast("string").as("Rating"),
+        first("Rating").cast("double").as("Rating"),
         max("Reviews").cast("long").as("Reviews"),                   //Filter row with max reviews
         first("Size").as("Size"),
         first("Installs").cast("string").as("Installs"),
@@ -68,21 +68,25 @@ object challenge {
     df_3
   }
 
-  def part4(df_1: DataFrame, df_3: DataFrame): Unit ={
+  def part4(df_1: DataFrame, df_3: DataFrame): DataFrame ={
     val df_4 = df_1.join(df_3, Seq("App"), "inner")                                               //Inner join on "App"
 
     df_4.write.option("compression", "gzip").mode("overwrite").parquet("src/main/resources/googleplaystore_cleaned")    //gzip compression
 
     println("PART 4:")
     df_4.show(200)
+    df_4
   }
 
-  def part5(df_3: DataFrame): Unit ={
-    val df_5_aux = df_3.withColumn("Genres", explode(col("Genres")))      //Explode arrays to separate multiple genres
+  def part5(df_4: DataFrame): Unit ={
+    val df_5_aux = df_4.withColumn("Genres", explode(col("Genres")))      //Explode arrays to separate multiple genres
+
     val df_5 = df_5_aux.groupBy("Genres").count()                                      //Group by genre count
+      .join(df_5_aux.groupBy("Genres").agg(avg("Rating").as("Average_Rating")), Seq("Genres"))   //Join on genres to calculate avg rating
+      .join(df_5_aux.groupBy("Genres").agg(avg("Average_Sentiment_Polarity").as("Average_Sentiment_Polarity")), Seq("Genres"))  //Join on genres to calculate avg sentiment
       .withColumnRenamed("Genres", "Genre")
 
-    //df_5.write.option("compression", "gzip").parquet("src/main/resources/googleplaystore_metrics") //gzip compression
+    df_5.write.option("compression", "gzip").parquet("src/main/resources/googleplaystore_metrics")    //gzip compression
 
     println("PART 5:")
     df_5.show(200)
@@ -110,8 +114,8 @@ object challenge {
     val df_part1 = part1(df)
     part2(df2)
     val df_part3 = part3(df2)
-    part4(df_part1, df_part3)
-    part5(df_part3)
+    val df_part4 = part4(df_part1, df_part3)
+    part5(df_part4)
   }
 
 }
