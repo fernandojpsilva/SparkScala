@@ -14,7 +14,7 @@ object challenge {
       .na.fill(0)                                                                                              //Fill null with 0
 
     println("PART 1:")
-    //df_1.show(1000)
+    df_1.show(200)
     df_1
   }
 
@@ -22,18 +22,18 @@ object challenge {
   def part2(df: DataFrame): Unit ={
     val lowerThreshold = 4.0
     val upperThreshold = 5.0
-    val df_aux = df.filter(col("Rating") >= lowerThreshold)                             //Apply lower threshold to rating
+    val df_2aux = df.filter(col("Rating") >= lowerThreshold)                             //Apply lower threshold to rating
       .filter(col("Rating") <= upperThreshold)                                          //Limit with upper threshold
       .sort(desc("Rating"))                                                          //Sort by desc order
 
-    val df_2 = df_aux.coalesce(1).write.format("com.databricks.spark.csv")
+    val df_2 = df_2aux.coalesce(1).write.format("com.databricks.spark.csv")
       .option("header", "true")
       .option("delimiter", "§")
       .mode("overwrite")
       .save("src/main/resources/best-apps.csv")
 
     println("PART 2:")
-    //df_2.show(1000)
+    df_2aux.show(200)
   }
 
   //PART 3
@@ -64,17 +64,17 @@ object challenge {
         .otherwise(regexp_replace(col("Minimum_Android_Version"), "", "")))                                                 //otherwise do nothing
 
     println("PART 3:")
-    //df_3.show(1000)
+    df_3.show(200)
     df_3
   }
 
   def part4(df_1: DataFrame, df_3: DataFrame): Unit ={
     val df_4 = df_1.join(df_3, Seq("App"), "inner")                                               //Inner join on "App"
 
-    df_4.write.option("compression", "gzip").parquet("src/main/resources/googleplaystore_cleaned")    //gzip compression
+    df_4.write.option("compression", "gzip").mode("overwrite").parquet("src/main/resources/googleplaystore_cleaned")    //gzip compression
 
     println("PART 4:")
-    //df_4.show(1000)
+    df_4.show(200)
   }
 
   def part5(df_3: DataFrame): Unit ={
@@ -85,7 +85,7 @@ object challenge {
     //df_5.write.option("compression", "gzip").parquet("src/main/resources/googleplaystore_metrics") //gzip compression
 
     println("PART 5:")
-    df_5.show(2000)
+    df_5.show(200)
   }
 
   def main(args: Array[String]): Unit =
@@ -108,9 +108,9 @@ object challenge {
       .csv("src/main/resources/googleplaystore.csv")
 
     val df_part1 = part1(df)
-    val df_part2 = part2(df2)
+    part2(df2)
     val df_part3 = part3(df2)
-    //part4(df_part1, df_part3)
+    part4(df_part1, df_part3)
     part5(df_part3)
   }
 
