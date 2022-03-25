@@ -9,22 +9,22 @@ import org.apache.spark.{SparkConf, SparkContext, SparkEnv}
 object challenge {
 
   //PART 1
-  def part1(df: DataFrame): Unit ={
-    val df_1 = df.groupBy("App","Sentiment_Polarity").avg()                                                 //Group by app name with avg sentiment polarity
-      .withColumnRenamed("Sentiment_Polarity", "Average_Sentiment_Polarity")                      //Rename column
-      .na.fill("0")                                                                                              //Fill null with 0
+  def part1(df: DataFrame): DataFrame ={
+    val df_1 = df.groupBy("App").agg(avg(df("Sentiment_Polarity")).as("Average_Sentiment_Polarity"))      //Group by app name with avg sentiment polarity
+      .na.fill(0)                                                                                              //Fill null with 0
 
     println("PART 1:")
-    df_1.show()
+    //df_1.show(1000)
+    df_1
   }
 
   //PART 2
   def part2(df: DataFrame): Unit ={
     val lowerThreshold = 4.0
     val upperThreshold = 5.0
-    val df_aux = df.filter(col("Rating") >= lowerThreshold)                                                      //Apply lower threshold to rating
-      .filter(col("Rating") <= upperThreshold)                                                                 //Limit with upper threshold
-      .sort(desc("Rating"))                                                                                 //Sort by desc order
+    val df_aux = df.filter(col("Rating") >= lowerThreshold)                             //Apply lower threshold to rating
+      .filter(col("Rating") <= upperThreshold)                                          //Limit with upper threshold
+      .sort(desc("Rating"))                                                          //Sort by desc order
 
     val df_2 = df_aux.coalesce(1).write.format("com.databricks.spark.csv")
       .option("header", "true")
@@ -32,19 +32,20 @@ object challenge {
       .mode("overwrite")
       .save("src/main/resources/best-apps.csv")
 
-    //df_2.show(10000)
+    println("PART 2:")
+    //df_2.show(1000)
   }
 
   //PART 3
-  def part3(df: DataFrame): Unit ={
+  def part3(df: DataFrame): DataFrame={
     val df_aux = df.groupBy("App")                                                    //Group by app name
       .agg(collect_set("Category").as("Categories"),                      //Set will avoid duplicate categories
         first("Rating").cast("string").as("Rating"),
-        max("Reviews").cast("long").as("Reviews"),
+        max("Reviews").cast("long").as("Reviews"),                   //Filter row with max reviews
         first("Size").as("Size"),
         first("Installs").cast("string").as("Installs"),
         first("Type").cast("string").as("Type"),
-        first("Price").cast("double").multiply(0.9).as("Price"),
+        first("Price").cast("double").multiply(0.9).as("Price"),  //Convert to Euro (*0.9)
         first("Content Rating").cast("string").as("Content_Rating"),
         first("Genres").as("Genres"),
         first("Last Updated").cast("String").as("Last_Updated"),
@@ -53,19 +54,38 @@ object challenge {
         )
 
     val df_3 = df_aux.withColumn("Size",
-        when(col("Size").like("%k"), (regexp_replace(col("Size"), "k", "").cast("double")*0.001))
-      .when(col("Size").like("%M"), (regexp_replace(col("Size"), "M", "").cast("double")))
-      .otherwise(regexp_replace(col("Size"), " ", "").cast("double")))
-      .withColumn("Genres", split(col("Genres"), ";").cast("array<string>"))
-      .withColumn("Last_Updated", date_format(to_date(col("Last_Updated"), "MMMM dd, yyyy"), "yyyy-MM-dd HH:mm:ss"))
-      .withColumn("Minimum_Android_Version", when(col("Minimum_Android_Version").like("%and up"), (regexp_replace(col("Minimum_Android_Version"), " and up", "")))
-        .otherwise(regexp_replace(col("Minimum_Android_Version"), "", "")))
+        when(col("Size").like("%k"), (regexp_replace(col("Size"), "k", "").cast("double")*0.001))      //Convert kb to Mb (1/1000)
+      .when(col("Size").like("%M"), (regexp_replace(col("Size"), "M", "").cast("double")))            //and remove letters k,M
+      .otherwise(regexp_replace(col("Size"), " ", "").cast("double")))                                                //do nothing otherwise
+      .withColumn("Genres", split(col("Genres"), ";").cast("array<string>"))                                            //Convert to array with delimiter ";"
+      .withColumn("Last_Updated", date_format(to_date(col("Last_Updated"), "MMMM dd, yyyy"), "yyyy-MM-dd HH:mm:ss"))    //Convert to date in new format
+      .withColumn("Minimum_Android_Version",
+        when(col("Minimum_Android_Version").like("%and up"), (regexp_replace(col("Minimum_Android_Version"), " and up", "")))  //Remove text and keep version
+        .otherwise(regexp_replace(col("Minimum_Android_Version"), "", "")))                                                 //otherwise do nothing
 
-    df_3.show(10000)
+    println("PART 3:")
+    //df_3.show(1000)
+    df_3
   }
 
-  def part4(): Unit ={
+  def part4(df_1: DataFrame, df_3: DataFrame): Unit ={
+    val df_4 = df_1.join(df_3, Seq("App"), "inner")                                               //Inner join on "App"
 
+    df_4.write.option("compression", "gzip").parquet("src/main/resources/googleplaystore_cleaned")    //gzip compression
+
+    println("PART 4:")
+    //df_4.show(1000)
+  }
+
+  def part5(df_3: DataFrame): Unit ={
+    val df_5_aux = df_3.withColumn("Genres", explode(col("Genres")))      //Explode arrays to separate multiple genres
+    val df_5 = df_5_aux.groupBy("Genres").count()                                      //Group by genre count
+      .withColumnRenamed("Genres", "Genre")
+
+    //df_5.write.option("compression", "gzip").parquet("src/main/resources/googleplaystore_metrics") //gzip compression
+
+    println("PART 5:")
+    df_5.show(2000)
   }
 
   def main(args: Array[String]): Unit =
@@ -75,10 +95,10 @@ object challenge {
 
     //Create DataFrames from csv
     val df = spark.read
-      .option("header", "true")                                                                                         //Include first line as header
-      .option("escape", "\"")                                                                                           //Quotes are used as an escape character for some App titles, otherwise commas aren't ignored
-      .option("nullValue", "nan")                                                                                       //Assign null to "nan" values
-      .csv("src/main/resources/googleplaystore_user_reviews.csv")                                                 //CSV path
+      .option("header", "true")                                                                      //Include first line as header
+      .option("escape", "\"")                                                                        //Quotes are used as an escape character for some App titles, otherwise commas aren't ignored
+      .option("nullValue", "nan")                                                                    //Assign null to "nan" values
+      .csv("src/main/resources/googleplaystore_user_reviews.csv")                              //CSV path
     //df.show(1000)
 
     val df2 = spark.read
@@ -90,7 +110,8 @@ object challenge {
     val df_part1 = part1(df)
     val df_part2 = part2(df2)
     val df_part3 = part3(df2)
-
+    //part4(df_part1, df_part3)
+    part5(df_part3)
   }
 
 }
