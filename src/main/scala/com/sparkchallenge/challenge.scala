@@ -7,7 +7,7 @@ object challenge {
 
   //PART 1
   def part1(df: DataFrame): DataFrame = {
-    val df_1 = df.groupBy("App").agg(avg(df("Sentiment_Polarity")).as("Average_Sentiment_Polarity")) //Group by app name with avg sentiment polarity
+    val df_1 = df.groupBy("App").agg(round(avg(df("Sentiment_Polarity")), 5).as("Average_Sentiment_Polarity")) //Group by app name with avg sentiment polarity
       .na.fill(0) //Fill null with 0
 
     println("PART 1:")
@@ -82,8 +82,8 @@ object challenge {
     val df_5_aux = df_4.withColumn("Genres", explode(col("Genres"))) //Explode arrays to separate multiple genres
 
     val df_5 = df_5_aux.groupBy("Genres").count() //Group by genre count
-      .join(df_5_aux.groupBy("Genres").agg(avg("Rating").as("Average_Rating")), Seq("Genres")) //Join on genres to calculate avg rating
-      .join(df_5_aux.groupBy("Genres").agg(avg("Average_Sentiment_Polarity").as("Average_Sentiment_Polarity")), Seq("Genres")) //Join on genres to calculate avg sentiment
+      .join(df_5_aux.groupBy("Genres").agg(round(avg("Rating"), 3).as("Average_Rating")), Seq("Genres")) //Join on genres to calculate avg rating
+      .join(df_5_aux.groupBy("Genres").agg(round(avg("Average_Sentiment_Polarity"), 3).as("Average_Sentiment_Polarity")), Seq("Genres")) //Join on genres to calculate avg sentiment
       .withColumnRenamed("Genres", "Genre")
 
     df_5.coalesce(1).write.option("compression", "gzip").mode("overwrite").parquet("src/main/resources/googleplaystore_metrics") //gzip compression
