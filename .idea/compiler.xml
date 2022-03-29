@@ -9,5 +9,8 @@
         <module name="SparkChallenge" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="SparkChallenge" target="8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
