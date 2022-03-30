@@ -37,34 +37,32 @@ object challenge {
   def part3(df: DataFrame): DataFrame = {
     val df_aux = df.groupBy("App") //Group by app name
       .agg(collect_set("Category").as("Categories"), //Set will avoid duplicate categories
-        first("Rating").cast("double").as("Rating"),
-        max("Reviews").cast("long").as("Reviews"), //Filter row with max reviews
-        first("Size").as("Size"),
-        first("Installs").cast("string").as("Installs"),
-        first("Type").cast("string").as("Type"),
-        first("Price").as("Price"),
-        first("Content Rating").cast("string").as("Content_Rating"),
-        first("Genres").as("Genres"),
-        first("Last Updated").cast("String").as("Last_Updated"),
-        first("Current Ver").cast("string").as("Current_Version"),
-        first("Android Ver").cast("string").as("Minimum_Android_Version")
+        max("Reviews").cast("long").as("Reviews") //Filter row with max reviews
       )
 
-    val df_3 = df_aux.withColumn("Size",
-      when(col("Size").like("%k"), regexp_replace(col("Size"), "k", "").cast("double") * 0.001) //Convert kb to Mb (1/1000)
-        .when(col("Size").like("%M"), regexp_replace(col("Size"), "M", "").cast("double")) //and remove letters k,M
-        .otherwise(regexp_replace(col("Size"), " ", "").cast("double"))) //do nothing otherwise
+    val df_3_aux = df_aux.join(df.drop("Category"), Seq("App", "Reviews"))
+
+    val df_3 = df_3_aux.withColumn("Reviews", df_3_aux("Reviews").cast("long"))
+      .withColumn("Size",
+        when(col("Size").like("%k"), regexp_replace(col("Size"), "k", "").cast("double") * 0.001) //Convert kb to Mb (1/1000)
+          .when(col("Size").like("%M"), regexp_replace(col("Size"), "M", "").cast("double")) //and remove letters k,M
+          .otherwise(regexp_replace(col("Size"), " ", "").cast("double"))) //do nothing otherwise
       .withColumn("Price",
         when(col("Price").startsWith("$"), round(regexp_replace(col("Price"), "[$,]", "").cast("double") * 0.9, 2))
-        .otherwise(regexp_replace(col("Price"), "", "")))
+          .otherwise(regexp_replace(col("Price"), "", "")))
+      .withColumnRenamed("Content Rating", "Content_Rating")
       .withColumn("Genres", split(col("Genres"), ";").cast("array<string>")) //Convert to array with delimiter ";"
-      .withColumn("Last_Updated", date_format(to_date(col("Last_Updated"), "MMMM dd, yyyy"), "yyyy-MM-dd HH:mm:ss")) //Convert to date in new format
-      .withColumn("Minimum_Android_Version",
-        when(col("Minimum_Android_Version").like("%and up"), regexp_replace(col("Minimum_Android_Version"), " and up", "")) //Remove text and keep version
-          .otherwise(regexp_replace(col("Minimum_Android_Version"), "", ""))) //otherwise do nothing
+      .withColumn("Last Updated", date_format(to_date(col("Last Updated"), "MMMM dd, yyyy"), "yyyy-MM-dd HH:mm:ss")) //Convert to date in new format
+      .withColumnRenamed("Last Updated", "Last_Updated")
+      .withColumnRenamed("Current Ver", "Current_Version")
+      .withColumn("Android Ver",
+        when(col("Android Ver").like("%and up"), regexp_replace(col("Android Ver"), " and up", "")) //Remove text and keep version
+          .otherwise(regexp_replace(col("Android Ver"), "", ""))) //otherwise do nothing
+      .withColumnRenamed("Android Ver", "Minimum_Android_Version")
 
     println("PART 3:")
-    df_3.show(200)
+    df_3.select("App", "Categories", "Rating",	"Reviews", "Size", "Installs", "Type", "Price",
+      "Content_Rating",	"Genres",	"Last_Updated",	"Current_Version",	"Minimum_Android_Version").show(200)
     df_3
   }
 
@@ -74,7 +72,8 @@ object challenge {
     df_4.coalesce(1).write.option("compression", "gzip").mode("overwrite").parquet("src/main/resources/googleplaystore_cleaned") //gzip compression
 
     println("PART 4:")
-    df_4.show(200)
+    df_4.select("App", "Categories", "Rating",	"Reviews", "Size", "Installs", "Type", "Price",
+      "Content_Rating",	"Genres",	"Last_Updated",	"Current_Version",	"Minimum_Android_Version", "Average_Sentiment_Polarity").show(200)
     df_4
   }
 
