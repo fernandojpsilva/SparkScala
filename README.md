@@ -1,4 +1,6 @@
 # Spark Challenge
+Just some challenges using Spark with Scala...
+
 ## Versions
 Scala 2.11.8
 
